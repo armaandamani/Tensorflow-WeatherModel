@@ -9,87 +9,85 @@ import matplotlib.pyplot as plt
 # Load the training and validation datasets
 train = utils.image_dataset_from_directory(
     'Weather',
-    label_mode = 'categorical',
-    image_size = (224, 224),
-    seed = 8080,
-    validation_split = 0.30,
-    subset = 'training',
-    batch_size = 32
+    label_mode='categorical',
+    image_size=(224, 224),
+    seed=8080,
+    validation_split=0.30,
+    subset='training',
+    batch_size=32
 )
 
 validation = utils.image_dataset_from_directory(
     'Weather',
-    label_mode = 'categorical',
-    image_size = (224, 224),
-    seed = 8080,
-    validation_split = 0.30,
-    subset = 'validation',
-    batch_size = 32
+    label_mode='categorical',
+    image_size=(224, 224),
+    seed=8080,
+    validation_split=0.30,
+    subset='validation',
+    batch_size=32
 )
 
-# Organizes dataset for processing
+# Preprocess datasets for VGG16
 train = train.map(lambda x, y: (applications.vgg16.preprocess_input(x), y))
 validation = validation.map(lambda x, y: (applications.vgg16.preprocess_input(x), y))
 
-# Load the VGG16 model
-vgg16Model = applications.vgg16.VGG16(
-    include_top = False,
-    weights = 'vgg16_weights.h5',
-    input_shape = (224, 224, 3),
-    classifier_activation = 'softmax'
+# Load the VGG16 base model
+base_model = applications.vgg16.VGG16(
+    include_top=False,
+    weights='vgg16_weights.h5',
+    input_shape=(224, 224, 3)
 )
 
-vgg16Model.trainable = False
+base_model.trainable = False
 
-# Create a model
-
+# Define the custom model
 inputs = layers.Input(shape=(224, 224, 3))
-outputs = vgg16Model(inputs, training = False)
+outputs = base_model(inputs, training=False)
 outputs = layers.Flatten()(outputs)
-outputs = layers.Dense(5, activation = 'relu')(outputs)
-WeatherModel = keras.Model(inputs, outputs)
+outputs = layers.Dense(5, activation='softmax')(outputs)
+WeatherClassifier = keras.Model(inputs, outputs)
 
-# Optimizers and loss functions
-optimizer_function = (optimizers.legacy.Adam(learning_rate=0.00001))
+# Define optimizer and loss function
+optimizer = optimizers.legacy.Adam(learning_rate=0.00001)
+loss_fn = losses.CategoricalCrossentropy()
 
-loss_function = (losses.CategoricalCrossentropy())
-
-# Compile the model with the optimizer and loss function
-WeatherModel.compile(
-    optimizer = optimizer_function,
-    loss = loss_function, 
-    metrics = ['accuracy']
+# Compile the model
+WeatherClassifier.compile(
+    optimizer=optimizer,
+    loss=loss_fn,
+    metrics=['accuracy']
 )
 
-# Train the model with the custom callback to print loss and optimizer values
-history = WeatherModel.fit(
+# Train the model
+history = WeatherClassifier.fit(
     train,
-    epochs = 10,
-    verbose = 1,
-    validation_data = validation,
+    epochs=10,
+    verbose=1,
+    validation_data=validation
 )
 
-WeatherModel.save("Models")
+# Save the model
+WeatherClassifier.save("weather_classifier")
 
-plt.figure(figsize = (12, 4))
+# Plot training results
+plt.figure(figsize=(12, 4))
 
-# Plot training & validation accuracy values
+# Plot accuracy
 plt.subplot(1, 2, 1)
 plt.plot(history.history['accuracy'])
 plt.plot(history.history['val_accuracy'])
-plt.title(f'Weather Model (Accuracy)')
+plt.title('Weather Classifier Accuracy')
 plt.ylabel('Accuracy')
 plt.xlabel('Epoch')
-plt.legend(['Train', 'Validation'], loc = 'upper left')
+plt.legend(['Train', 'Validation'], loc='upper left')
 
-# Plot training & validation loss values
+# Plot loss
 plt.subplot(1, 2, 2)
 plt.plot(history.history['loss'])
 plt.plot(history.history['val_loss'])
-plt.title(f'Weather Model (loss)')
+plt.title('Weather Classifier Loss')
 plt.ylabel('Loss')
 plt.xlabel('Epoch')
-plt.legend(['Train', 'Validation'], loc = 'upper left')
+plt.legend(['Train', 'Validation'], loc='upper left')
 
-# Show the plot
 plt.show()
